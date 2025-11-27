@@ -1449,7 +1449,7 @@ local function close_preview_window(winnr, bufnrs)
       return
     end
 
-    local augroup = 'nvim.preview_window_' .. winnr
+    local augroup = 'nvim.close_preview_window_' .. winnr
     pcall(api.nvim_del_augroup_by_name, augroup)
     pcall(api.nvim_win_close, winnr, true)
   end)
@@ -1463,7 +1463,7 @@ end
 ---@param bufnr integer buffer that opened the floating preview buffer
 ---@see autocmd-events
 local function close_preview_autocmd(events, winnr, floating_bufnr, bufnr)
-  local augroup = api.nvim_create_augroup('nvim.preview_window_' .. winnr, {
+  local augroup = api.nvim_create_augroup('nvim.close_preview_window_' .. winnr, {
     clear = true,
   })
 
@@ -1492,6 +1492,17 @@ local function close_preview_autocmd(events, winnr, floating_bufnr, bufnr)
       end,
     })
   end
+
+  -- Delete autocmds for this window after it is resized
+  api.nvim_create_autocmd('WinResized', {
+    group = augroup,
+    callback = function()
+      if vim.list_contains(vim.v.event.windows, winnr) then
+        pcall(api.nvim_del_augroup_by_id, augroup)
+        vim.w[winnr]['blablabla'] = false
+      end
+    end,
+  })
 end
 
 --- Computes size of float needed to show contents (with optional wrapping)
@@ -1668,7 +1679,12 @@ function M.open_floating_preview(contents, syntax, opts)
       end
       do
         local win = find_window_by_var(opts.focus_id, bufnr)
-        if win and api.nvim_win_is_valid(win) and vim.fn.pumvisible() == 0 then
+        if
+          win
+          and vim.w[win]['blablabla'] ~= false
+          and api.nvim_win_is_valid(win)
+          and vim.fn.pumvisible() == 0
+        then
           -- focus and return the existing buf, win
           api.nvim_set_current_win(win)
           api.nvim_command('stopinsert')
@@ -1753,6 +1769,19 @@ function M.open_floating_preview(contents, syntax, opts)
         and winid == vim.b[preview_bufnr].lsp_floating_preview
       then
         vim.b[bufnr].lsp_floating_preview = nil
+        return true
+      end
+    end,
+  })
+
+  api.nvim_create_autocmd('WinResized', {
+    group = api.nvim_create_augroup(
+      'nvim.remove_preview_float_autoclose_' .. floating_winnr,
+      { clear = true }
+    ),
+    callback = function()
+      if vim.list_contains(vim.v.event.windows, floating_winnr) then
+        vim.api.nvim_win_set_var(floating_winnr, 'lsp_auto_close_preview', false)
         return true
       end
     end,

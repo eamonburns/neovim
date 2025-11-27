@@ -159,12 +159,15 @@ function M.hover(config)
 
     local _, winid = lsp.util.open_floating_preview(contents, format, config)
 
-    api.nvim_create_autocmd('WinClosed', {
-      pattern = tostring(winid),
-      once = true,
-      callback = function()
-        api.nvim_buf_clear_namespace(bufnr, hover_ns, 0, -1)
-        return true
+    api.nvim_create_autocmd({ 'WinClosed', 'WinResized' }, {
+      callback = function(args)
+        if
+          (args.match == tostring(winid))
+          or (args.event == 'WinResized' and vim.list_contains(vim.v.event.windows, winid))
+        then
+          api.nvim_buf_clear_namespace(bufnr, hover_ns, 0, -1)
+          return true
+        end
       end,
     })
   end)
