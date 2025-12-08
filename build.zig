@@ -48,6 +48,8 @@ pub fn build(b: *std.Build) !void {
 
     const use_unibilium = b.option(bool, "unibilium", "use unibilium") orelse true;
 
+    const run_appname = b.option([]const u8, "run_appname", "value of NVIM_APPNAME when running");
+
     // puc lua 5.1 is not ReleaseSafe "safe"
     const optimize_lua = if (optimize == .Debug or optimize == .ReleaseSafe) .ReleaseSmall else optimize;
 
@@ -351,6 +353,16 @@ pub fn build(b: *std.Build) !void {
 
     nvim.dependOn(&nvim_exe_install.step);
     nvim.dependOn(&runtime_install.step);
+
+    // ===== Step: run =====
+    const run_step = b.step("run", "run the editor, with $VIMRUNTIME set appropriately");
+    const run_cmd = b.addRunArtifact(nvim_exe);
+    run_step.dependOn(&run_cmd.step);
+    run_cmd.setEnvironmentVariable("VIMRUNTIME", "runtime");
+    if (run_appname) |name| run_cmd.setEnvironmentVariable("NVIM_APPNAME", name);
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
 
     const lua_dev_deps = b.dependency("lua_dev_deps", .{});
 
